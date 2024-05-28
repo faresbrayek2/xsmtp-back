@@ -13,4 +13,4 @@ class User(BaseModel):
     balance: float
 
     class Config:
-        orm_mode = True # Pydantic v2 uses 'orm_mode' instead of 'from_attributes'
+        from_attributes = True

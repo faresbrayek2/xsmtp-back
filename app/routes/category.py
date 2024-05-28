@@ -4,7 +4,7 @@ from typing import List
 import os
 
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
-from app.routes.auth import get_current_user, get_current_active_admin
+from app.routes.auth import get_current_active_admin
 from app.models.user import User
 
 router = APIRouter()

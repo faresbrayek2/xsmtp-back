@@ -3,6 +3,7 @@ from typing import Optional, List
 
 class Subcategory(BaseModel):
     name: str
+    product_count: int = 0  # Initialize product count to 0
 
 class CategoryBase(BaseModel):
     name: str
