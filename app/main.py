@@ -21,43 +21,14 @@ client = AsyncIOMotorClient(MONGODB_URL)
 db = client.xsmtp
 
 @app.on_event("startup")
-async def initialize_categories():
-    categories = {
-        "Accounts": [
-            "Email Marketing", "Webmail Business", "Marketing Tools", "Hosting/Domain", "Games",
-            "Graphic / Developer", "VPN/Socks Proxy", "Shopping", "Program", "Stream", "Dating",
-            "Learning", "Torrent / File Host", "Voip / Sip", "Social Media", "Other"
-        ],
-        "Business": [
-            "Cpanel Webmail", "Godaddy Webmail", "Office Godaddy Webmail", "Office365 Webmail",
-            "Rackspace Webmail", "Ionos Webmail"
-        ],
-        "Leads": [
-            "100% Checked Email list", "Email Only", "Combo Email:Password", "Combo Username:Password",
-            "Email Access", "Combo Email:Hash", "Phone Number Only", "Combo Phone:Password", "Full Data",
-            "Social Media Data"
-        ],
-        "Send": [
-            "SMTP", "Mailers"
-        ],
-        "Hosts": [
-            "Cpanels", "Shells", "SSH\\WHM", "RDP"
-        ]
-    }
+async def initialize_collections():
+    collections = await db.list_collection_names()
+    if "users" not in collections:
+        await db.create_collection("users")
 
-    for category_name, subcategories in categories.items():
-        existing_category = await db.categories.find_one({"name": category_name})
-        if not existing_category:
-            category = {
-                "name": category_name,
-                "subcategories": [{"name": subcategory, "product_count": 0} for subcategory in subcategories],
-                "id": await get_next_category_id()
-            }
-            await db.categories.insert_one(category)
-
-async def get_next_category_id():
-    last_category = await db.categories.find_one(sort=[("id", -1)])
-    return (last_category["id"] + 1) if last_category else 1
+async def get_next_id():
+    last_user = await db.users.find_one(sort=[("id", -1)])
+    return (last_user["id"] + 1) if last_user else 1
 
 @app.get("/")
 def read_root():

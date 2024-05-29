@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import logging
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -9,9 +10,11 @@ import os
 from dotenv import load_dotenv
 
 from app.schemas.auth import Token, TokenData
-from app.schemas.user import UserCreate, User
+from app.schemas.user import UserCreate, UserResponse
 from app.models.user import User as UserModel
 from motor.motor_asyncio import AsyncIOMotorClient
+
+logging.getLogger('passlib').setLevel(logging.ERROR)
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -22,7 +25,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
-
 router = APIRouter()
 
 client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
@@ -53,12 +55,25 @@ async def authenticate_user(username: str, password: str):
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now() + expires_delta
+        expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.now() + timedelta(minutes=15)
+        expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+@router.post("/register", response_model=UserResponse)
+async def register_user(user: UserCreate):
+    user_dict = user.dict()
+    user_dict["role"] = user_dict.get("role", "buyer")  # Default role to "buyer" if not provided
+    user_dict["balance"] = 0.0
+    user_dict["id"] = await get_next_id()
+
+    hashed_password = get_password_hash(user_dict["password"])
+    user_dict["password"] = hashed_password
+
+    await db.users.insert_one(user_dict)
+    return UserResponse(**user_dict)
 
 @router.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -109,3 +124,7 @@ async def get_current_active_support(current_user: UserModel = Depends(get_curre
             detail="The user doesn't have enough privileges",
         )
     return current_user
+
+async def get_next_id():
+    last_user = await db.users.find_one(sort=[("id", -1)])
+    return (last_user["id"] + 1) if last_user else 1

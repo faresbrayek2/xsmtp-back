@@ -4,7 +4,7 @@ from typing import List
 import os
 
 from app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
-from app.routes.auth import get_current_active_admin
+from app.routes.auth import get_current_user, get_current_active_admin
 from app.models.user import User
 
 router = APIRouter()
@@ -26,7 +26,7 @@ async def create_category(category: CategoryCreate, current_user: User = Depends
     return category_dict
 
 @router.get("/", response_model=List[CategoryResponse])
-async def get_categories():
+async def get_categories(current_user: User = Depends(get_current_user)):
     categories = await db.categories.find().to_list(length=100)
     return categories
 
