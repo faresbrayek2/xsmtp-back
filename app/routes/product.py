@@ -1,65 +1,130 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List, Union
 from motor.motor_asyncio import AsyncIOMotorClient
-from typing import List
-from app.models.user import User
-from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
-from app.routes.auth import get_current_user, get_current_active_admin, get_current_active_support
+from datetime import datetime
 import os
+from dotenv import load_dotenv
+from app.schemas.product import (
+    ShellsInput, CPanelInput, SSHWHMInput, RDPInput, SMTPInput, MailersInput,
+    LeadsInput, BusinessInput, AccountsInput,
+    Shells, CPanel, SSHWHM, RDP, SMTP, Mailers, Leads, Business, Accounts
+)
+from app.routes.auth import get_current_active_seller
+from app.schemas.user import UserResponse
+from app.utils import extract_tld , check_ssl , lookup_ip , get_hosting , get_host_info  , get_seo_info , get_seo_rank_da
+
+load_dotenv()
 
 router = APIRouter()
 
 client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
 db = client.xsmtp
 
-async def update_product_count(category_name: str, subcategory_name: str, increment: int):
-    category = await db.categories.find_one({"name": category_name})
-    if not category:
-        raise HTTPException(status_code=404, detail="Category not found")
+# Define the full_schemas dictionary
+full_schemas = {
+    "shells": Shells,
+    "cpanel": CPanel,
+    "sshwhm": SSHWHM,
+    "rdp": RDP,
+    "smtp": SMTP,
+    "mailers": Mailers,
+    "leads": Leads,
+    "business": Business,
+    "accounts": Accounts
+}
 
-    subcategory_index = next((index for (index, d) in enumerate(category["subcategories"]) if d["name"] == subcategory_name), None)
-    if subcategory_index is None:
-        raise HTTPException(status_code=404, detail="Subcategory not found")
+async def get_next_product_id(product_type: str):
+    last_product = await db[product_type].find_one(sort=[("id", -1)])
+    return (last_product["id"] + 1) if last_product else 1
 
-    category["subcategories"][subcategory_index]["product_count"] += increment
-    await db.categories.update_one({"name": category_name}, {"$set": {"subcategories": category["subcategories"]}})
+async def create_generic_product(product_dict: dict, product_type: str, seller_name: str):
+    product_dict.update({
+        "id": await get_next_product_id(product_type),
+        "seller": seller_name,
+        "date_created": datetime.utcnow(),
+        "tld": extract_tld(product_dict.get("url", "")),
+        "ssl": check_ssl(product_dict.get("url", "")),
+        "location": lookup_ip(product_dict.get("url", "")),
+        "hosting": get_hosting(product_dict.get("url", "")),
+        "host_info": get_host_info(product_dict.get("url", "")),
+        "seo_info": get_seo_info(product_dict.get("url", "")),
+        "seo_rank_da": get_seo_rank_da(product_dict.get("url", ""))
+    })
 
-@router.post("/", response_model=ProductResponse)
-async def create_product(product: ProductCreate, current_user: User = Depends(get_current_user)):
+    full_product = full_schemas[product_type](**product_dict)
+    await db[product_type].insert_one(full_product.dict())
+    return full_product
+
+@router.post("/shells", response_model=Shells)
+async def create_shells_product(product: ShellsInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
     product_dict = product.dict()
-    product_dict["user_id"] = current_user.id
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "shells", seller_name)
 
-    await db.products.insert_one(product_dict)
-    await update_product_count(product.category, product.subcategory, 1)
-    return product_dict
+@router.post("/cpanel", response_model=CPanel)
+async def create_cpanel_product(product: CPanelInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "cpanel", seller_name)
 
-@router.put("/{id}", response_model=ProductResponse)
-async def update_product(id: str, product: ProductUpdate, current_user: User = Depends(get_current_user)):
-    product_dict = product.dict(exclude_unset=True)
-    existing_product = await db.products.find_one({"_id": id})
-    if not existing_product:
-        raise HTTPException(status_code=404, detail="Product not found")
+@router.post("/sshwhm", response_model=SSHWHM)
+async def create_sshwhm_product(product: SSHWHMInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "sshwhm", seller_name)
 
-    if existing_product["user_id"] != current_user.id and current_user.role not in ["admin", "support"]:
-        raise HTTPException(status_code=403, detail="Not authorized to update this product")
+@router.post("/rdp", response_model=RDP)
+async def create_rdp_product(product: RDPInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "rdp", seller_name)
 
-    if "category" in product_dict or "subcategory" in product_dict:
-        if existing_product["category"] != product_dict["category"] or existing_product["subcategory"] != product_dict["subcategory"]:
-            await update_product_count(existing_product["category"], existing_product["subcategory"], -1)
-            await update_product_count(product_dict["category"], product_dict["subcategory"], 1)
+@router.post("/smtp", response_model=SMTP)
+async def create_smtp_product(product: SMTPInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "smtp", seller_name)
 
-    await db.products.update_one({"_id": id}, {"$set": product_dict})
-    updated_product = await db.products.find_one({"_id": id})
-    return updated_product
+@router.post("/mailers", response_model=Mailers)
+async def create_mailers_product(product: MailersInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "mailers", seller_name)
 
-@router.delete("/{id}", response_model=ProductResponse)
-async def delete_product(id: str, current_user: User = Depends(get_current_user)):
-    existing_product = await db.products.find_one({"_id": id})
-    if not existing_product:
-        raise HTTPException(status_code=404, detail="Product not found")
+@router.post("/leads", response_model=Leads)
+async def create_leads_product(product: LeadsInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "leads", seller_name)
 
-    if existing_product["user_id"] != current_user.id and current_user.role not in ["admin", "support"]:
-        raise HTTPException(status_code=403, detail="Not authorized to delete this product")
+@router.post("/business", response_model=Business)
+async def create_business_product(product: BusinessInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "business", seller_name)
 
-    await db.products.delete_one({"_id": id})
-    await update_product_count(existing_product["category"], existing_product["subcategory"], -1)
-    return existing_product
+@router.post("/accounts", response_model=Accounts)
+async def create_accounts_product(product: AccountsInput, current_user: UserResponse = Depends(get_current_active_seller)):
+    if current_user.seller is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User is not a seller")
+    product_dict = product.dict()
+    seller_name = current_user.seller.seller_name
+    return await create_generic_product(product_dict, "accounts", seller_name)
+
+# Include the rest of the CRUD operations for other endpoints as required.

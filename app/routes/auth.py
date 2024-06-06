@@ -13,6 +13,7 @@ from app.schemas.auth import Token, TokenData
 from app.schemas.user import UserCreate, UserResponse
 from app.models.user import User as UserModel
 from motor.motor_asyncio import AsyncIOMotorClient
+from app.schemas.user import SellerInfo, User
 
 logging.getLogger('passlib').setLevel(logging.ERROR)
 
@@ -37,9 +38,11 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 async def get_user(username: str):
-    user = await db.users.find_one({"username": username})
-    if user:
-        return UserModel(**user)
+    user_data = await db.users.find_one({"username": username})
+    if user_data:
+        if 'seller' in user_data:
+            user_data['seller'] = SellerInfo(**user_data['seller'])
+        return User(**user_data)
 
 async def authenticate_user(username: str, password: str):
     user = await get_user(username)
@@ -119,6 +122,14 @@ async def get_current_active_admin(current_user: UserModel = Depends(get_current
 
 async def get_current_active_support(current_user: UserModel = Depends(get_current_user)):
     if current_user.role not in ["admin", "support"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The user doesn't have enough privileges",
+        )
+    return current_user
+# Add this to auth.py if not already present
+async def get_current_active_seller(current_user: UserModel = Depends(get_current_user)):
+    if current_user.role != "seller":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="The user doesn't have enough privileges",
