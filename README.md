@@ -1,13 +1,15 @@
 # xSMTP Store Backend
 
-This is the backend for the xSMTP store, built with FastAPI and MongoDB. It includes user management, ticket system, categories, and subcategories.
+This is the backend for the xSMTP store, built with FastAPI and MongoDB. It includes user management, ticket system, categories, subcategories, and support for various product types.
 
 ## Features
 
 - User registration and authentication
+- JWT-based authentication
 - Ticket system for user-admin communication
 - Categories and subcategories management
-- JWT-based authentication
+- Product management with various product types
+- Role-based access control
 
 ## Requirements
 
@@ -67,12 +69,15 @@ This is the backend for the xSMTP store, built with FastAPI and MongoDB. It incl
 │ │ ├── auth.py
 │ │ ├── category.py
 │ │ ├── ticket.py
+│ │ ├── product.py
 │ │ └── user.py
 │ ├── schemas
 │ │ ├── auth.py
 │ │ ├── category.py
 │ │ ├── ticket.py
+│ │ ├── product.py
 │ │ └── user.py
+│ ├── utils.py
 │ └── init.py
 ├── .env
 ├── .gitignore
@@ -80,6 +85,7 @@ This is the backend for the xSMTP store, built with FastAPI and MongoDB. It incl
 ├── requirements.txt
 └── venv
 ```
+
 
 
 ## API Endpoints
@@ -92,6 +98,7 @@ This is the backend for the xSMTP store, built with FastAPI and MongoDB. It incl
 ### Users
 
 - **GET** `/users/me`: Get the current authenticated user
+- **PUT** `/users/role/{user_id}`: Update the role of a user (Admin only)
 
 ### Tickets
 
@@ -106,6 +113,18 @@ This is the backend for the xSMTP store, built with FastAPI and MongoDB. It incl
 - **GET** `/categories`: Retrieve all categories
 - **PUT** `/categories/{id}`: Update a category (Admin only)
 - **DELETE** `/categories/{id}`: Delete a category (Admin only)
+
+### Products
+
+- **POST** `/products/shells`: Add a new Shells product (Sellers only)
+- **POST** `/products/cpanel`: Add a new cPanel product (Sellers only)
+- **POST** `/products/sshwhm`: Add a new SSH/WHM product (Sellers only)
+- **POST** `/products/rdp`: Add a new RDP product (Sellers only)
+- **POST** `/products/smtp`: Add a new SMTP product (Sellers only)
+- **POST** `/products/mailers`: Add a new Mailers product (Sellers only)
+- **POST** `/products/leads`: Add a new Leads product (Sellers only)
+- **POST** `/products/business`: Add a new Business product (Sellers only)
+- **POST** `/products/accounts`: Add a new Accounts product (Sellers only)
 
 ## License
 
