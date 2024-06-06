@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from motor.motor_asyncio import AsyncIOMotorClient
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel
 
-from app.schemas.user import UserCreate, UserResponse, UserUpdate, SellerInfo
-from app.routes.auth import get_current_user, get_current_active_admin
+from app.schemas.user import UserCreate, UserResponse
+from app.routes.auth import get_current_user, get_current_active_admin, get_next_id, get_password_hash
 import os
 
 router = APIRouter()
