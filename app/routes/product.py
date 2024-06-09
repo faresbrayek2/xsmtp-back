@@ -11,7 +11,7 @@ from app.schemas.product import (
 )
 from app.routes.auth import get_current_active_seller
 from app.schemas.user import UserResponse
-from app.utils import extract_tld , check_ssl , lookup_ip , get_hosting , get_host_info  , get_seo_info , get_seo_rank_da
+from app.utils import extract_tld, check_ssl, lookup_ip, get_hosting, get_host_info, get_seo_data
 
 load_dotenv()
 
@@ -38,6 +38,7 @@ async def get_next_product_id(product_type: str):
     return (last_product["id"] + 1) if last_product else 1
 
 async def create_generic_product(product_dict: dict, product_type: str, seller_name: str):
+    seo_data = get_seo_data(product_dict.get("url", ""))
     product_dict.update({
         "id": await get_next_product_id(product_type),
         "seller": seller_name,
@@ -47,8 +48,8 @@ async def create_generic_product(product_dict: dict, product_type: str, seller_n
         "location": lookup_ip(product_dict.get("url", "")),
         "hosting": get_hosting(product_dict.get("url", "")),
         "host_info": get_host_info(product_dict.get("url", "")),
-        "seo_info": get_seo_info(product_dict.get("url", "")),
-        "seo_rank_da": get_seo_rank_da(product_dict.get("url", ""))
+        "seo_rank_da": seo_data.get("seo_rank_da"),
+        "seo_info": seo_data.get("seo_info")
     })
 
     full_product = full_schemas[product_type](**product_dict)
